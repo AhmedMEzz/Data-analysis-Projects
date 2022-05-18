@@ -1,0 +1,112 @@
+/*Query 1: Which Artist is listened to the most by each country*/
+
+WITH count_track_id AS
+       (SELECT ar.Name Artist_name, 
+	       c.Country, 
+	       count(t.TrackId) Total_purchased
+	FROM Artist ar
+	JOIN Album al
+	ON ar.ArtistId = al.ArtistId
+	JOIN track t
+	ON t.AlbumId = al.AlbumId
+	JOIN InvoiceLine IL
+	ON IL.trackId = t.trackId
+	JOIN Invoice I
+	ON IL.invoiceId = I.invoiceId
+	JOIN customer c
+	ON c.customerId = i.customerId
+	GROUP BY 1, 
+		 2
+	ORDER BY 3 DESC)
+SELECT c.Artist_name, 
+       c.country, 
+       c.Total_purchased
+FROM count_track_id c
+JOIN 
+    (SELECT country,
+	    MAX(Total_purchased) mx_purchsed
+     FROM count_track_id
+     GROUP BY 1) t2
+ON t2.country = c.country AND c.Total_purchased = t2.mx_purchsed
+
+/*Query 2: Which Artist write the most rock music*/
+
+SELECT ar.ArtistId, 
+       ar.Name, 
+       COUNT(g.GenreId) song
+FROM track t
+JOIN Album al
+ON t.AlbumId = al.AlbumId
+JOIN Artist ar
+ON ar.ArtistId = al.ArtistId
+JOIN Genre g
+ON g.GenreId = t.GenreId AND g.name = "Rock"
+GROUP BY 1, 2
+ORDER BY 3 desc
+LIMIT 10
+
+/*Query 3: Which customer spent the most on the most earned artist*/
+
+SELECT ar.name, 
+       SUM(IL.UnitPrice) total_spend, 
+       c.CustomerId, 
+       c.FirstName || ' ' || c.LastName FullName
+FROM Artist ar
+JOIN Album al
+ON ar.ArtistId = al.ArtistId 
+AND ar.name = 
+     	(SELECT ar.name
+	FROM  Artist ar
+	JOIN Album al
+	ON ar.ArtistId = al.ArtistId
+	JOIN track t
+	ON t.AlbumId = al.AlbumId
+	JOIN InvoiceLine IL
+	ON IL.trackId = t.trackId
+	JOIN Invoice I
+	ON IL.invoiceId = I.invoiceId
+	JOIN customer c
+	ON c.customerId = i.customerId
+	Group By 1
+order by sum(IL.UnitPrice) desc
+LIMIT 1)
+JOIN track t
+ON t.AlbumId = al.AlbumId
+JOIN InvoiceLine IL
+ON IL.trackId = t.trackId
+JOIN Invoice I
+ON IL.invoiceId = I.invoiceId
+JOIN customer c
+ON c.customerId = i.customerId
+Group By 1, 3, 4
+order by 2 desc, 3
+LIMIT 6
+
+/*Query 4: The most purchased music Genre for each country*/
+
+WITH 	t1 AS
+	(Select count(IL.InvoiceLineId) purchases, 
+                c.Country, 
+                g.Name, 
+                g.GenreId  
+	From Genre g
+	JOIN track t
+	ON t.GenreId = g.GenreId
+	JOIN InvoiceLine IL
+	ON IL.trackId = t.trackId
+	JOIN Invoice I
+	ON IL.invoiceId = I.invoiceId
+	JOIN customer c
+	ON c.customerId = i.customerId
+	GROUP BY 2, 3, 4) 
+SELECT t1.purchases, 
+       t1.Country, 
+       t1.Name, 
+       t1.GenreId
+FROM t1
+JOIN
+	(Select MAX(purchases) purchases, 
+	        Country
+	From t1
+	GROUP by 2) t2
+ON t1.Country = t2.Country where t1.purchases = t2.purchases
